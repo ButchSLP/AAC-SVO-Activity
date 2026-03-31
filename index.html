@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dog Man: Sentence Mission</title>
+    <script src="https://bernardo-castilho.github.io/DragDropTouch/DragDropTouch.js"></script>
+    <style>
+        /* Dog Man / Comic Book Palette */
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; background: #bbdefb; font-family: 'Comic Sans MS', 'Chalkboard SE', cursive; touch-action: none; }
+        body { display: flex; align-items: center; justify-content: center; padding: 5px; box-sizing: border-box; }
+        
+	/* Prevent selection and ghosting */
+        body, #game-container, .symbol, .bank, #drop-zone, #workspace {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        img { -webkit-user-drag: none; }
+
+        #home-link {
+            position: absolute; top: 15px; left: 15px; background: #ffeb3b; padding: 0;
+            border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.2); text-decoration: none;
+            font-size: 24px; z-index: 4000; display: flex; align-items: center; justify-content: center;
+            width: 55px; height: 55px; border: 4px solid #1976d2; transition: transform 0.2s;
+        }
+
+        #game-container, #result-screen { 
+            width: 100%; max-width: 1200px; height: 98vh; background: white; 
+            padding: 15px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
+            display: flex; flex-direction: column; box-sizing: border-box; 
+            position: relative; overflow: hidden; border: 6px solid #1976d2;
+        }
+
+        .hidden { display: none !important; }
+
+        #progress-container { display: flex; align-items: center; justify-content: center; gap: 5px; margin-bottom: 10px; background: #e3f2fd; padding: 10px; border-radius: 12px; flex-shrink: 0; flex-wrap: wrap; }
+        .progress-node { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 2px solid #90caf9; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; color: #1e88e5; }
+        .node-active { border-color: #ffc107; background: #fff; box-shadow: 0 0 8px rgba(255, 193, 7, 0.7); transform: scale(1.1); }
+        .node-complete { background: #4caf50; border-color: #2e7d32; color: white; }
+
+        #main-content { display: flex; flex-direction: row; gap: 15px; flex-grow: 1; min-height: 0; }
+        #gif-container { flex: 1; background: #000; border-radius: 15px; display: flex; align-items: center; justify-content: center; border: 4px solid #1976d2; overflow: hidden; }
+        #trial-gif { max-width: 100%; max-height: 100%; object-fit: contain; }
+        
+        #workspace { flex: 1.2; display: flex; flex-direction: column; gap: 8px; min-width: 350px; }
+        #drop-zone { flex-shrink: 0; display: flex; gap: 8px; padding: 10px; background: #f5f5f5; border: 4px dashed #1976d2; min-height: 105px; border-radius: 15px; justify-content: center; align-items: center; }
+        .bank { flex-grow: 1; display: flex; gap: 8px; justify-content: center; align-content: center; flex-wrap: wrap; padding: 10px; background: #fff; border-radius: 10px; overflow-y: visible; }
+        
+        .symbol { padding: 2px; border-radius: 10px; cursor: grab; font-weight: bold; width: 95px; height: 90px; font-size: 0.8rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: space-between; background: white; }
+        .symbol img { width: 85px; height: 85px; object-fit: contain; pointer-events: none; }
+        
+        .who { border: 5px solid #ffeb3b; }   
+        .doing { border: 5px solid #4caf50; } 
+        .what { border: 5px solid #ff9800; }  
+        
+        #feedback { font-weight: bold; font-size: 1.4rem; height: 30px; text-align: center; margin: 5px 0; }
+        button { padding: 12px 30px; font-size: 1rem; cursor: pointer; border-radius: 50px; border: none; font-weight: bold; text-transform: uppercase; }
+        #check-btn { background: #1e88e5; color: white; }
+        #next-btn { background: #ff9800; color: white; display: none; }
+
+        /* Modal / Overlay Styles */
+        #audio-unlock-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: #1976d2; color: white; z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        
+        /* Title Screen GIF Positioning */
+        .title-screen-gif { position: absolute; width: 250px; height: auto; pointer-events: none; z-index: 3005; }
+        #title-gif-tr { top: 20px; right: 20px; }
+        #title-gif-bl { bottom: 20px; left: 20px; }
+
+        #settings-modal { display: none; position: absolute; background: white; color: #333; padding: 25px; border-radius: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); z-index: 3500; width: 320px; border: 5px solid #ffeb3b; }
+        
+        #dance-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1500; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(25, 118, 210, 0.9); }
+        #celebration-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 5000; display: none; flex-direction: column; align-items: center; justify-content: center; transition: opacity 1s ease-in-out; }
+        #dance-gif, #celebration-gif { max-width: 85%; max-height: 75%; border: 10px solid #ffeb3b; border-radius: 20px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: #e3f2fd; padding: 12px; border-bottom: 2px solid #1976d2; text-align: left; }
+        td { padding: 10px; border-bottom: 1px solid #eee; }
+    </style>
+</head>
+<body>
+
+    <a href="index.html" id="home-link">🏠</a>
+
+    <div id="audio-unlock-overlay">
+        <img src="images/dogman-title-one.gif" id="title-gif-tr" class="title-screen-gif">
+        <img src="images/dogman-title-two.gif" id="title-gif-bl" class="title-screen-gif">
+
+        <div id="start-card">
+            <h1 style="font-size: 3.5rem; margin: 0;">DOG MAN</h1>
+            <h2 style="margin: 0 0 20px 0; color: #ffeb3b;">Sentence Mission</h2>
+            <button style="background: #ffeb3b; color: #1976d2; font-size: 2rem; padding: 20px 60px;" onclick="startApp()">START</button>
+            <br>
+            <button onclick="toggleSettings()" style="background:none; border:2px solid white; color:white; margin-top:20px; padding:10px 25px;">⚙ SETTINGS</button>
+        </div>
+
+        <div id="settings-modal">
+            <h3 style="color:#1976d2; margin-top:0;">Mission Setup</h3>
+            <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>Trials:</span><span id="trial-count-val" style="color:#1976d2;">10</span></div>
+            <input type="range" id="trial-slider" min="5" max="20" step="5" value="10" oninput="updateTrialText(this.value)" style="width:100%; margin:15px 0;">
+            <div style="display:flex; justify-content:space-between; font-weight:bold;"><span>Foils:</span><span id="foil-val" style="color:#1976d2;">2</span></div>
+            <input type="range" id="foil-slider" min="0" max="3" value="2" oninput="updateFoilText(this.value)" style="width:100%; margin:15px 0;">
+            <button onclick="toggleSettings()" style="background:#1976d2; color:white; width:100%; margin-top:10px;">SAVE</button>
+        </div>
+    </div>
+
+    <div id="dance-overlay" onclick="nextTrial()">
+        <img id="dance-gif" src="" alt="Hero Dance">
+        <h2 style="color: white; margin-top: 15px;">TAP TO CONTINUE!</h2>
+    </div>
+
+    <div id="celebration-overlay">
+        <h1 style="color:#1976d2; font-size: 3rem; margin-bottom:10px;">MISSION ACCOMPLISHED!</h1>
+        <img id="celebration-gif" src="images/dogman_celebration.gif" alt="Celebration!">
+    </div>
+
+    <div id="game-container">
+        <div id="progress-container"><div class="score-display" style="font-weight:bold; color:#1976d2;">Score: <span id="score-val">0</span></div></div>
+        <div id="main-content">
+            <div id="gif-container"><img id="trial-gif" src="" alt="Action"></div>
+            <div id="workspace">
+                <div id="drop-zone"></div>
+                <div class="bank" id="word-bank"></div>
+                <div id="feedback"></div>
+                <div style="display:flex; justify-content:center; gap: 15px;">
+                    <button id="check-btn" onclick="checkAnswer()">Check Answer</button>
+                    <button id="next-btn" onclick="nextTrial()">Next Trial &rarr;</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="result-screen" class="hidden">
+        <div style="text-align:center; padding: 10px;">
+            <h1 style="margin: 0; color: #1976d2;">Mission Report</h1>
+            <div style="font-size: 3rem; color: #ff9800; font-weight:bold;" id="final-pct">0%</div>
+        </div>
+        <div style="flex-grow: 1; overflow-y: auto; padding: 0 20px;">
+            <table>
+                <thead><tr><th>#</th><th>Mission Target</th><th>Result</th></tr></thead>
+                <tbody id="log-body"></tbody>
+            </table>
+        </div>
+        <button onclick="location.reload()" style="background:#1976d2; color:white; margin:20px auto; display:block;">Restart Mission</button>
+    </div>
+
+    <script>
+        let numFoils = 2;
+        let totalTrialsRequested = 10;
+        let sessionTrials = [];
+        let currentIndex = 0, score = 0, trialLog = [];
+        
+        // Loop music logic
+        let currentDanceSong = new Audio();
+        const danceSongs = [
+            'sounds/dogman-song-one.mp3', 
+            'sounds/dogman-song-two.mp3', 
+            'sounds/dogman-song-three.mp3', 
+            'sounds/dogman-song-four.mp3', 
+            'sounds/dogman-song-five.mp3'
+        ];
+
+        const sounds = { 
+            drop: new Audio('sounds/drop.mp3'), 
+            incorrect: new Audio('sounds/incorrect_answer.mp3'), 
+            celebration: new Audio('sounds/celebration_results.mp3') 
+        };
+        const danceGifs = ['images/dogman-one.gif', 'images/dogman-two.gif', 'images/dogman-three.gif', 'images/dogman-four.gif', 'images/dogman-five.gif', 'images/dogman-six.gif', 'images/dogman-seven.gif', 'images/dogman-eight.gif'];
+
+        const trialsData = [
+            { gif: "images/he_feel_hot.gif", who: "He", whoImg: "symbols/he.png", doing: "feels", doingImg: "symbols/feel.png", what: "hot", whatImg: "symbols/hot.png" },
+            { gif: "images/he_eat_spaghetti.gif", who: "He", whoImg: "symbols/he.png", doing: "eats", doingImg: "symbols/eat.png", what: "spaghetti", whatImg: "symbols/spaghetti.png" },
+            { gif: "images/he_drinks_coffee.gif", who: "He", whoImg: "symbols/he.png", doing: "drinks", doingImg: "symbols/drink.png", what: "coffee", whatImg: "symbols/coffee.png" },
+            { gif: "images/he_eat_popcorn.gif", who: "He", whoImg: "symbols/he.png", doing: "eats", doingImg: "symbols/eat.png", what: "popcorn", whatImg: "symbols/popcorn.png" },
+            { gif: "images/he_give_flower.gif", who: "He", whoImg: "symbols/he.png", doing: "gives", doingImg: "symbols/give.png", what: "flower", whatImg: "symbols/flower.png" },
+            { gif: "images/he_make_hotdog.gif", who: "He", whoImg: "symbols/he.png", doing: "makes", doingImg: "symbols/make.png", what: "hot dog", whatImg: "symbols/hotdog.png" },
+            { gif: "images/he_hug_dog.gif", who: "He", whoImg: "symbols/he.png", doing: "hugs", doingImg: "symbols/hug.png", what: "dog", whatImg: "symbols/dog.png" },
+            { gif: "images/he_kick_ball.gif", who: "He", whoImg: "symbols/he.png", doing: "kicks", doingImg: "symbols/kick.png", what: "ball", whatImg: "symbols/ball.png" },
+            { gif: "images/he_ride_boat.gif", who: "He", whoImg: "symbols/he.png", doing: "rides", doingImg: "symbols/ride.png", what: "boat", whatImg: "symbols/boat.png" },
+            { gif: "images/she_drink_water.gif", who: "She", whoImg: "symbols/she.png", doing: "drinks", doingImg: "symbols/drink.png", what: "water", whatImg: "symbols/water.png" },
+            { gif: "images/she_hold_balloon.gif", who: "She", whoImg: "symbols/she.png", doing: "holds", doingImg: "symbols/hold.png", what: "balloon", whatImg: "symbols/balloon.png" },
+            { gif: "images/she_hug_cat.gif", who: "She", whoImg: "symbols/she.png", doing: "hugs", doingImg: "symbols/hug.png", what: "cat", whatImg: "symbols/cat.png" },
+            { gif: "images/she_make_music.gif", who: "She", whoImg: "symbols/she.png", doing: "makes", doingImg: "symbols/make.png", what: "music", whatImg: "symbols/music.png" },
+            { gif: "images/she_see_bunny.gif", who: "She", whoImg: "symbols/she.png", doing: "sees", doingImg: "symbols/see.png", what: "bunny", whatImg: "symbols/bunny.png" },
+            { gif: "images/she_wash_hands.gif", who: "She", whoImg: "symbols/she.png", doing: "washes", doingImg: "symbols/wash.png", what: "hands", whatImg: "symbols/hands.png" },
+            { gif: "images/she_ride_bike.gif", who: "She", whoImg: "symbols/she.png", doing: "rides", doingImg: "symbols/ride.png", what: "bike", whatImg: "symbols/bike.png" },
+            { gif: "images/it_ride_firetruck.gif", who: "It", whoImg: "symbols/it.png", doing: "rides", doingImg: "symbols/ride.png", what: "firetruck", whatImg: "symbols/firetruck.png" },
+            { gif: "images/it_want_hotdog.gif", who: "It", whoImg: "symbols/it.png", doing: "wants", doingImg: "symbols/want.png", what: "hot dog", whatImg: "symbols/hotdog.png" },
+            { gif: "images/it_want_water.gif", who: "It", whoImg: "symbols/it.png", doing: "wants", doingImg: "symbols/want.png", what: "water", whatImg: "symbols/water.png" },
+            { gif: "images/it_eat_popcorn.gif", who: "It", whoImg: "symbols/it.png", doing: "eats", doingImg: "symbols/eat.png", what: "popcorn", whatImg: "symbols/popcorn.png" }
+        ];
+
+        function toggleSettings() { const m = document.getElementById('settings-modal'); m.style.display = (m.style.display === 'block') ? 'none' : 'block'; }
+        function updateFoilText(val) { numFoils = parseInt(val); document.getElementById('foil-val').innerText = val; }
+        function updateTrialText(val) { totalTrialsRequested = parseInt(val); document.getElementById('trial-count-val').innerText = val; }
+
+        function startApp() {
+            sessionTrials = [...trialsData].sort(() => 0.5 - Math.random()).slice(0, totalTrialsRequested);
+            const pContainer = document.getElementById('progress-container');
+            const scoreDisplay = pContainer.querySelector('.score-display');
+            pContainer.innerHTML = "";
+            for(let i=0; i<sessionTrials.length; i++) {
+                const node = document.createElement('div'); node.className = "progress-node"; node.id = `node-${i}`; node.innerText = i+1;
+                pContainer.appendChild(node);
+            }
+            pContainer.appendChild(scoreDisplay);
+            document.getElementById('audio-unlock-overlay').style.display = 'none';
+            loadTrial();
+        }
+
+        function speak(text, callback) {
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            if (callback) u.onend = callback;
+            window.speechSynthesis.speak(u);
+        }
+
+        function loadTrial() {
+            const nodes = document.querySelectorAll('.progress-node');
+            nodes.forEach((n, i) => { n.classList.remove('node-active'); if (i === currentIndex) n.classList.add('node-active'); });
+            const trial = sessionTrials[currentIndex];
+            document.getElementById('trial-gif').src = trial.gif;
+            document.getElementById('drop-zone').innerHTML = ""; 
+            document.getElementById('feedback').innerText = "";
+            document.getElementById('check-btn').style.display = "inline-block"; 
+            document.getElementById('next-btn').style.display = "none";
+            
+            let items = [{ text: trial.who, type: "who", img: trial.whoImg }, { text: trial.doing, type: "doing", img: trial.doingImg }, { text: trial.what, type: "what", img: trial.whatImg }];
+            let foilsAdded = 0;
+            let shuffledTrials = [...trialsData].sort(() => 0.5 - Math.random());
+            for(let r of shuffledTrials) {
+                if(foilsAdded >= numFoils) break;
+                let foilType = Math.random() > 0.5 ? "doing" : "what";
+                let foilItem = { text: r[foilType], type: foilType, img: r[foilType + "Img"] };
+                if(!items.find(i => i.text === foilItem.text)) { items.push(foilItem); foilsAdded++; }
+            }
+
+            const bank = document.getElementById('word-bank');
+            bank.innerHTML = "";
+            items.sort(() => 0.5 - Math.random()).forEach(item => {
+                const div = document.createElement('div');
+                div.className = `symbol ${item.type}`; div.draggable = true; div.dataset.text = item.text;
+                div.innerHTML = `<img src="${item.img}" draggable="false"><span>${item.text}</span>`;
+                div.onpointerdown = () => speak(item.text);
+                div.addEventListener('dragstart', (e) => e.target.classList.add('dragging'));
+                div.addEventListener('dragend', (e) => e.target.classList.remove('dragging'));
+                bank.appendChild(div);
+            });
+        }
+
+        const dropZone = document.getElementById('drop-zone');
+        const wordBank = document.getElementById('word-bank');
+        [dropZone, wordBank].forEach(zone => {
+            zone.addEventListener('dragover', e => e.preventDefault());
+            zone.addEventListener('drop', e => {
+                const d = document.querySelector('.dragging');
+                if (d) { zone.appendChild(d); if(zone.id === "drop-zone") { sounds.drop.currentTime = 0; sounds.drop.play(); } }
+            });
+        });
+
+        function checkAnswer() {
+            const placed = Array.from(dropZone.children);
+            const trial = sessionTrials[currentIndex];
+            const isCorrect = (placed.length === 3) && (placed[0].dataset.text === trial.who) && (placed[1].dataset.text === trial.doing) && (placed[2].dataset.text === trial.what);
+            trialLog.push({ num: currentIndex + 1, target: `${trial.who} ${trial.doing} ${trial.what}`, status: isCorrect ? "Pass" : "Fail" });
+            if (isCorrect) {
+                document.getElementById('feedback').innerText = "HEROIC!"; document.getElementById('feedback').style.color = "#4caf50";
+                score++; document.getElementById('score-val').innerText = score;
+                document.getElementById(`node-${currentIndex}`).classList.add('node-complete');
+                speak(`${trial.who} ${trial.doing} ${trial.what}`, () => {
+                    document.getElementById('dance-gif').src = danceGifs[Math.floor(Math.random() * danceGifs.length)] + "?t=" + Date.now();
+                    document.getElementById('dance-overlay').style.display = "flex";
+
+                    // Play random looping song
+                    currentDanceSong.src = danceSongs[Math.floor(Math.random() * danceSongs.length)];
+                    currentDanceSong.loop = true;
+                    currentDanceSong.play().catch(e => console.log("Audio play blocked."));
+                });
+            } else {
+                document.getElementById('feedback').innerText = "TRY AGAIN!"; document.getElementById('feedback').style.color = "#e74c3c";
+                sounds.incorrect.play();
+            }
+            document.getElementById('check-btn').style.display = "none";
+            document.getElementById('next-btn').style.display = "inline-block";
+        }
+
+        function nextTrial() { 
+            document.getElementById('dance-overlay').style.display = "none";
+            
+            // Stop and reset the looping music
+            currentDanceSong.pause();
+            currentDanceSong.currentTime = 0;
+
+            currentIndex++; if (currentIndex < sessionTrials.length) loadTrial(); else showResults(); 
+        }
+
+        function showResults() {
+            // 1. Prepare results screen in background
+            document.getElementById('game-container').classList.add('hidden'); 
+            document.getElementById('result-screen').classList.remove('hidden');
+            document.getElementById('final-pct').innerText = Math.round(score / totalTrialsRequested * 100) + "%";
+            document.getElementById('log-body').innerHTML = trialLog.map(t => `<tr><td>${t.num}</td><td>${t.target}</td><td style="color:${t.status==='Pass'?'#2ecc71':'#e74c3c'}; font-weight:bold;">${t.status}</td></tr>`).join("");
+            
+            // 2. Play celebration overlay if high score
+            if (score / totalTrialsRequested >= 0.7) {
+                const cOverlay = document.getElementById('celebration-overlay');
+                cOverlay.style.display = 'flex';
+                cOverlay.style.opacity = '1';
+                sounds.celebration.play();
+
+                // 3. Transition timer (5 seconds)
+                setTimeout(() => {
+                    cOverlay.style.opacity = '0'; // Start fade
+                    setTimeout(() => {
+                        cOverlay.style.display = 'none'; // Fully hide after fade
+                    }, 1000);
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>
